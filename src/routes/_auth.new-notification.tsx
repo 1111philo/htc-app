@@ -1,10 +1,9 @@
 import { useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 
-import * as API from 'aws-amplify/api'
-
 import { FeedbackMessage, GuestSelectSearch } from '../lib/components'
 import { Button, Form } from "react-bootstrap";
+import { addGuestNotification } from '../lib/api';
 
 export const Route = createFileRoute('/_auth/new-notification')({
   component: NewNotificationView,
@@ -30,36 +29,30 @@ function AddNewNotificationForm() {
   })
 
   const handleCreateNotification = async (e) => {
-    if (selectedGuestOpt === undefined) {
+    if (!selectedGuestOpt) {
       setFeedbackMessage({
-        text: "Notification must include a guest",
+        text: "Notification must include a guest.",
         isError: true
       });
       return;
     }
 
-    const response = await (
-      await API.post({
-        apiName: 'auth',
-        path: '/addGuestNotification',
-        options: {
-          body: {
-            guest_id: +selectedGuestOpt.value,
-            message: message,
-            status: 'Active',
-          },
-        },
-      }).response
-    ).statusCode
+    const success = await addGuestNotification({ guest_id: +selectedGuestOpt.value, message });
 
-    if (response === 200) {
+    if (!success) {
       setFeedbackMessage({
-        text: "Notification created!",
-        isError: false
+        text: "Oops! The notification couldn't be created. Try again in a few.",
+        isError: true
       });
-      setSelectedGuestOpt(null);
-      setMessage("");
+      return;
     }
+
+    setFeedbackMessage({
+      text: "Notification created!",
+      isError: false
+    });
+    setSelectedGuestOpt(null);
+    setMessage("");
   }
 
   const handleEnter = (e) => {

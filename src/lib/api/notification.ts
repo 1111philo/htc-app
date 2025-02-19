@@ -2,6 +2,26 @@
 
 import * as API from "aws-amplify/api";
 
+export async function addGuestNotification(n: Partial<GuestNotification>): Promise<boolean> {
+  try {
+    const response =
+      await API.post({
+        apiName: 'auth',
+        path: '/addGuestNotification',
+        options: { body: { ...n, status: "Active" } },
+      }).response;
+    if (response.statusCode === 200) {
+      return true;
+    } else {
+      console.error("There was an error creating the notification. Response:", response);
+      return false;
+    }
+  } catch (err) {
+    console.error(err);
+    return false;
+  }
+}
+
 export async function toggleGuestNotificationStatus(
   notificationId: number
 ): Promise<boolean> {
