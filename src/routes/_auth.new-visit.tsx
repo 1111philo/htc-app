@@ -7,14 +7,14 @@ import {
   NewGuestForm,
   GuestSelectSearch,
 } from "../lib/components";
-import { addGuest, getGuestData, getGuestsWithQuery } from "../lib/api/guest";
+import { addGuest, getGuestData } from "../lib/api/guest";
 import { addVisit } from "../lib/api/visit";
-import { toggleGuestNotificationStatus } from "../lib/api/notification";
+import { addGuestNotification, toggleGuestNotificationStatus } from "../lib/api/notification";
 import {
-  guestOptLabel,
   readableDateTime,
   trimStringValues,
   convertServiceTypeToOption,
+  guestSelectOptFrom,
 } from "../lib/utils";
 
 interface LoaderData {
@@ -41,13 +41,16 @@ function NewVisitView() {
   });
 
   const [showNewGuestModal, setShowNewGuestModal] = useState(false);
-  const [newGuest, setNewGuest] = useState<Partial<Guest> | null>(null);
+  const [newGuest, setNewGuest] = useState<Guest | null>(null);
 
   const [selectedGuestOpt, setSelectedGuestOpt] =
-    useState<ReactSelectOption | null>(null);
+    useState<GuestSelectOption | null>(null);
+
   const [selectedServicesOpt, setSelectedServicesOpt] = useState<
     ReactSelectOption[]
   >([]); // array bc this Select is set to multi
+
+  const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null)
 
   const [notifications, setNotifications] = useState<GuestNotification[]>([]);
 
@@ -68,13 +71,11 @@ function NewVisitView() {
     }
   };
 
-  // set selected guest to new guest if exists
+  // set selected guest + option to new guest if exists
   useEffect(() => {
     if (!newGuest) return;
-    setSelectedGuestOpt({
-      value: newGuest.guest_id?.toString()!,
-      label: guestOptLabel(newGuest),
-    });
+    setSelectedGuest(newGuest)
+    setSelectedGuestOpt(guestSelectOptFrom(newGuest))
   }, [newGuest]);
 
   // get notifications from selected guest
@@ -122,15 +123,25 @@ function NewVisitView() {
 
       <GuestSelectSearch
         newGuest={newGuest}
+        onSelect={onSelectGuest}
         selectedGuestOpt={selectedGuestOpt}
-        setSelectedGuestOpt={setSelectedGuestOpt}
       />
 
-      {!!notifications.length && <Notifications data={notifications} />}
+      <Notifications
+        notifications={notifications}
+        selectedGuestOpt={selectedGuestOpt}
+        selectedGuest={selectedGuest}
+        setNotifications={setNotifications}
+      />
 
-      <RequestedServices data={serviceTypes} />
+      <RequestedServices />
     </>
   );
+
+  function onSelectGuest(selection: GuestSelectOption) {
+    setSelectedGuestOpt(selection);
+    setSelectedGuest(selection.guest);
+  }
 
   async function onSubmitNewGuestForm(
     guest: Partial<Guest>
@@ -144,7 +155,7 @@ function NewVisitView() {
       isError: false,
     });
     const newGuest: Partial<Guest> = { ...guest, guest_id };
-    setNewGuest(newGuest);
+    setNewGuest(newGuest as Guest);
     return guest_id;
   }
 
@@ -153,58 +164,8 @@ function NewVisitView() {
     setShowNewGuestModal(false);
   }
 
-  function Notifications({ data }) {
-    return (
-      <div className="pb-5">
-        <h2>Notifications ({notifications.length})</h2>
-        <Table>
-          <tbody>
-            {notifications.map((n: GuestNotification) => {
-              const [date, time] = readableDateTime(n.created_at).split(" ");
-              return (
-                <tr key={n.notification_id} className="align-middle">
-                  <td>
-                    {date} <br /> {time}
-                  </td>
-                  <td>{n.message}</td>
-                  <td>
-                    <Form.Select
-                      onChange={async () =>
-                        await updateNotificationStatus(
-                          n.notification_id,
-                          n.status
-                        )
-                      }
-                      style={{ minWidth: "11ch" }}
-                      data-notification-id={n.notification_id}
-                    >
-                      <option value="Active">ACTIVE</option>
-                      <option value="Archived">Archive</option>
-                    </Form.Select>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </Table>
-      </div>
-    );
 
-    async function updateNotificationStatus(
-      notificationId: number,
-      status: GuestNotificationStatus
-    ) {
-      const success = await toggleGuestNotificationStatus(notificationId);
-      if (success) return;
-      // unsuccessful -> revert value
-      const notificationSelect = document.querySelector(
-        `[data-notification-id="${notificationId}"]`
-      ) as HTMLSelectElement | null;
-      notificationSelect!.value = status;
-    }
-  }
-
-  function RequestedServices({ data }) {
+  function RequestedServices({ }) {
     return (
       <div>
         <h2>Requested Services</h2>
@@ -265,7 +226,187 @@ function NewVisitView() {
 
   function clear() {
     setSelectedGuestOpt(null);
+    setSelectedGuest(null);
     setDefaultService();
     setNotifications([]);
+  }
+}
+
+
+
+function Notifications({ notifications, selectedGuestOpt, selectedGuest, setNotifications }) {
+  const [showModal, setShowModal] = useState(false)
+  return (
+    <div className="pb-5">
+      <div className="d-flex justify-content-between align-items-center">
+        <h2>Notifications ({notifications.length})</h2>
+        {selectedGuestOpt &&
+          <Button
+            onClick={() => setShowModal(true)}
+          >
+            Add Notification
+          </Button>
+        }
+      </div>
+      <Modal show={showModal}>
+        <AddNotificationForm
+          guest={selectedGuest!}
+          selectedGuestOpt={selectedGuestOpt}
+          onSubmit={onSubmitNotification}
+          onCancel={() => setShowModal(false)}
+        />
+      </Modal>
+      {!!notifications.length &&
+        <Table>
+          <tbody>
+            {notifications.map((n: GuestNotification) => {
+              const [date, time] = readableDateTime(n.created_at).split(" ");
+              return (
+                <tr key={n.notification_id} className="align-middle">
+                  <td>
+                    {date} <br /> {time}
+                  </td>
+                  <td>{n.message}</td>
+                  <td>
+                    <Form.Select
+                      onChange={async () =>
+                        await updateNotificationStatus(
+                          n.notification_id,
+                          n.status
+                        )
+                      }
+                      style={{ minWidth: "11ch" }}
+                      data-notification-id={n.notification_id}
+                    >
+                      <option value="Active">ACTIVE</option>
+                      <option value="Archived">Archive</option>
+                    </Form.Select>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </Table>
+      }
+    </div>
+  );
+
+  function onSubmitNotification() {
+    setShowModal(false);
+    getGuestData(+selectedGuestOpt.value).then((g) => {
+      if (!g.guest_notifications) return; // new guest is partial, so no notifications key
+      setNotifications(
+        (g.guest_notifications as GuestNotification[]).filter(
+          (n: GuestNotification) => n.status === "Active"
+        )
+      );
+    });
+  }
+
+  async function updateNotificationStatus(
+    notificationId: number,
+    status: GuestNotificationStatus
+  ) {
+    const success = await toggleGuestNotificationStatus(notificationId);
+    if (success) return;
+    // unsuccessful -> revert value
+    const notificationSelect = document.querySelector(
+      `[data-notification-id="${notificationId}"]`
+    ) as HTMLSelectElement | null;
+    notificationSelect!.value = status;
+  }
+}
+
+interface ANFProps {
+  guest: Guest;
+  selectedGuestOpt: GuestSelectOption;
+  onSubmit: () => void;
+  onCancel: () => void;
+}
+function AddNotificationForm({ guest, selectedGuestOpt, onSubmit, onCancel }: ANFProps) {
+  const MESSAGE_MIN_LENGTH = 5
+  const MESSAGE_MAX_LENGTH = 500
+  const [feedbackMessage, setFeedbackMessage] = useState({
+    text: "", isError: false
+  })
+
+  return (
+    <Form
+      onSubmit={async (e) => await onSubmitNotification(e)}
+      className="m-3"
+    >
+      <FeedbackMessage message={feedbackMessage} />
+      <h2>New Notification</h2>
+      <Form.Group className="mb-3">
+        <Form.Label className="fs-4">
+          To: {guest.first_name} {guest.last_name}
+        </Form.Label>
+        <Form.Control
+          name="guest_id"
+          type="number"
+          readOnly
+          hidden
+          value={guest.guest_id}
+          onChange={(e) => {
+            // TODO: does this do anything (goal: prevent updates even if user removes readonly)
+            e.preventDefault()
+            return
+          }}
+        />
+      </Form.Group>
+      <Form.Group className="mb-3">
+        <Form.Label>Message</Form.Label>
+        <Form.Control
+          name="message"
+          as="textarea"
+          minLength={MESSAGE_MIN_LENGTH}
+          maxLength={MESSAGE_MAX_LENGTH}
+        />
+      </Form.Group>
+      <Button
+        variant="danger"
+        onClick={onCancelNotification}
+      >Cancel</Button>
+      <Button type="submit" className="float-end">Submit</Button>
+    </Form>
+  )
+
+  function onCancelNotification() {
+    if (!confirm("Discard the new notification?")) return;
+    onCancel()
+  }
+
+  async function onSubmitNotification(e) {
+    e.preventDefault()
+
+    if (!selectedGuestOpt) {
+      setFeedbackMessage({
+        text: "Notification must include a guest.",
+        isError: true
+      });
+      return;
+    }
+
+    const { target: form } = e
+
+    const notification = Object.fromEntries(new FormData(form));
+
+    const success = await addGuestNotification(notification);
+
+    if (!success) {
+      setFeedbackMessage({
+        text: "Oops! The notification couldn't be created. Try again in a few.",
+        isError: true
+      });
+      return;
+    }
+
+    setFeedbackMessage({
+      text: "Notification created!",
+      isError: false
+    });
+    // setSelectedGuestOpt(null);
+    // form.reset()
+    onSubmit()
   }
 }

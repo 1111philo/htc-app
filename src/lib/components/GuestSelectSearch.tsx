@@ -2,11 +2,20 @@ import { useState } from 'react';
 import Select from 'react-select';
 import { useDebouncedCallback } from "use-debounce";
 import { getGuestsWithQuery } from '../api';
-import { guestOptLabel, guestLookupOpts } from '../utils';
+import { guestLookupOpts, guestSelectOptFrom } from '../utils';
 
 import { Form } from 'react-bootstrap';
 
-export default function GuestSelectSearch({ newGuest, selectedGuestOpt, setSelectedGuestOpt }) {
+interface Props {
+  newGuest?: Guest | null;
+  onSelect: (selection: GuestSelectOption) => void;
+  selectedGuestOpt: GuestSelectOption | null;
+}
+export default function GuestSelectSearch({
+  newGuest,
+  onSelect,
+  selectedGuestOpt
+}: Props) {
   const [guestSelectOpts, setGuestSelectOpts] = useState<
     { value: string; label: string }[]
   >([]);
@@ -29,13 +38,13 @@ export default function GuestSelectSearch({ newGuest, selectedGuestOpt, setSelec
           id="user-dropdown"
           options={
             newGuest
-              ? [{ value: newGuest.guest_id, label: guestOptLabel(newGuest) }]
+              ? [guestSelectOptFrom(newGuest)]
               : guestSelectOpts
           }
           defaultValue={selectedGuestOpt}
           defaultInputValue={searchText}
           value={selectedGuestOpt}
-          onChange={(newVal) => setSelectedGuestOpt(newVal)}
+          onChange={(newVal) => onSelect(newVal)}
           onInputChange={onChangeInput}
           menuIsOpen={!!searchText}
           placeholder={"Search for a guest..."}

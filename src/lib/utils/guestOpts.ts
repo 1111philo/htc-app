@@ -5,10 +5,14 @@ export function guestOptLabel(g: Guest) {
 
 /** Map guests to `Select` options */
 export function guestLookupOpts(guests: Guest[]): ReactSelectOption[] {
-  return guests.map((g) => {
-    return {
-      value: g.guest_id.toString(),
-      label: guestOptLabel(g),
-    };
-  });
+  return guests.map((g) => guestSelectOptFrom(g));
+}
+
+/** Given a Guest, return a Guest select option. */
+export function guestSelectOptFrom(guest: Guest): GuestSelectOption {
+  return {
+    value: String(guest.guest_id),
+    label: guestOptLabel(guest),
+    guest
+  };
 }

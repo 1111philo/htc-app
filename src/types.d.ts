@@ -145,6 +145,10 @@ interface ReactSelectOption {
   label: string;
 }
 
+interface GuestSelectOption extends ReactSelectOption {
+  guest: Guest;
+}
+
 /** Feedback shown to the user on submit event or similar. */
 interface UserMessage {
   text: string;

@@ -4,6 +4,7 @@ import { createFileRoute } from '@tanstack/react-router'
 import { FeedbackMessage, GuestSelectSearch } from '../lib/components'
 import { Button, Form } from "react-bootstrap";
 import { addGuestNotification } from '../lib/api';
+import { guestSelectOptFrom } from '../lib/utils';
 
 export const Route = createFileRoute('/_auth/new-notification')({
   component: NewNotificationView,
@@ -21,7 +22,7 @@ function NewNotificationView() {
 
 function AddNewNotificationForm() {
 
-  const [selectedGuestOpt, setSelectedGuestOpt] = useState<ReactSelectOption | null>();
+  const [selectedGuestOpt, setSelectedGuestOpt] = useState<GuestSelectOption | null>(null);
   const [message, setMessage] = useState("");
   const [feedbackMessage, setFeedbackMessage] = useState({
     text: "",
@@ -69,9 +70,8 @@ function AddNewNotificationForm() {
       />
 
       <GuestSelectSearch
-        newGuest={undefined}
         selectedGuestOpt={selectedGuestOpt}
-        setSelectedGuestOpt={setSelectedGuestOpt}
+        onSelect={setSelectedGuestOpt}
       />
 
       <Form id="new-notification">
